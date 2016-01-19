@@ -1,5 +1,5 @@
 #  coding: utf-8 
-import SocketServer
+
 
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
 # 
@@ -26,13 +26,104 @@ import SocketServer
 
 # try: curl -v -X GET http://127.0.0.1:8080/
 
+import os
+import SocketServer
+
+
 
 class MyWebServer(SocketServer.BaseRequestHandler):
     
+    #Response is what we 
+    response = ""
+  
+   
     def handle(self):
+
         self.data = self.request.recv(1024).strip()
         print ("Got a request of: %s\n" % self.data)
-        self.request.sendall("OK")
+	http_request = self.data.splitlines()[0].split()
+	
+
+	#Check to see if the first line of the request contains the valid GET type
+	if self.valid_request(http_request):
+		requestData = http_request[1];
+		path = os.path.abspath("www" + requestData)
+
+
+	#1.Check to see if the path ends at a file and if the Content-Type of that file is valid and the file exists
+		if self.valid_file(path):
+			content_type = path.split(".")[-1].lower()
+			if(content_type == "css" or content_type == "html"):
+				content_extension = "text/"+content_type
+				self.OK_200(content_extension,path)
+			else:
+				self.ERROR_404(self.response)
+
+	#2.Check to see if the path ends at directory and checks if that directory contains a valid index
+		elif self.valid_dir(path):
+			path = path + "/index.html"
+			if self.valid_file(path):
+				content_type = "text/html\n\n"
+				self.OK_200(content_type,path)
+
+	#We can not conclude that path is not a valid directory nor a valid file
+		else:	
+			self.ERROR_404(self.response)
+	
+	#The request contained something other then the GET type		
+	else:	
+		self.ERROR_501(self.response)
+
+	#send back a response with the valid file content
+	print self.response
+        self.request.sendall(self.response)
+
+    def OK_200(self,content_type,path):
+	print path
+	self.response +=("HTTP/1.1 200 OK\n"+
+                    "Content-Type: "+content_type+"\n\n"+
+                    open(path).read())
+	return
+
+    
+    def ERROR_501(self,response):
+	self.response += ("HTTP/1.1 501 Not Implemented\n"+
+                        "Content-Type text/html\n\n"+
+                        "<!DOCTYPE html>\n"+
+                        "<html><body>HTTP/1.1 501 Not Implemented\n\n"+
+                        "Server only supports GET.</body></html>")
+	return
+
+    def ERROR_404(self,response):
+	self.response += ("HTTP/1.1 404 Not Found\r\n"
+                          "Connection: close\r\n"
+                          "Content-Type: text/html\n\n"
+                          "<!DOCTYPE html>\n"
+                          "<html><body><h1>Oops! The page you are looking for seems to "
+                          "be missing.</h1></body></html>")
+	return
+	
+
+    def valid_request(self,http_request):
+	if len(http_request) == 3:
+		print http_request[0]
+		if http_request[0] == "GET":
+			return True
+		else:
+			return False	
+
+    def valid_file(self,path):
+	if (os.path.isfile(path)):
+		return True
+	else:
+	 	return False
+
+    def valid_dir(self,path):
+	if (os.path.isdir(path)):
+	       return True
+	else:
+		return False
+		
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
