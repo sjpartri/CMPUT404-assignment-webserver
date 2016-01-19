@@ -33,7 +33,7 @@ import SocketServer
 
 class MyWebServer(SocketServer.BaseRequestHandler):
     
-    #Response is what we 
+    
     response = ""
   
    
